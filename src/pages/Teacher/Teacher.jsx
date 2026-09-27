@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-export const Instructor = () => {
+export const Teacher = () => {
   const [instructors, setInstructors] = useState([]);
   const [form, setForm] = useState({ name: '', email: '', specialty: '' });
   const [showForm, setShowForm] = useState(false);
