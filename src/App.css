@@ -1,0 +1,25 @@
+:root {
+  --sena-green: #39A900;
+  --sena-green-hover: #2e8800;
+  --sena-dark-blue: #00324D;
+  --bg-dark: #121820;
+  --bg-light: #f8fafc;
+  --text-dark: #1e293b;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: #f1f5f9;
+  color: var(--text-dark);
+}
+
+.container-custom {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  box-sizing: border-box;
+}

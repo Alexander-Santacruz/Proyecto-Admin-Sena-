@@ -1,0 +1,25 @@
+.footer-custom {
+  background-color: var(--bg-dark);
+  color: #ffffff;
+  padding: 3rem 0 1.5rem 0;
+  margin-top: 4rem;
+  border-top: 2px solid #2d3748;
+}
+
+.footer-grid {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid #2d3748;
+}
+
+.footer-sub {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  padding-top: 1.5rem;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}

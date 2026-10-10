@@ -1,0 +1,14 @@
+<VirtualHost *>
+    DocumentRoot "C:/xampp/htdocs"
+    ServerName localhost
+</VirtualHost>
+
+<VirtualHost *>
+    DocumentRoot "C:/xampp/htdocs/api.AdminSena.test/public"
+    ServerName api.AdminSena.test
+    <Directory "C:/xampp/htdocs/api.AdminSena.test/public">
+        Options All
+        AllowOverride All
+        Require all granted
+    </Directory>
+</VirtualHost>

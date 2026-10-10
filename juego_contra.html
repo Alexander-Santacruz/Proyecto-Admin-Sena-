@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CONTRA: NEO JUNGLE - Arcade Edition</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@700;900&display=swap');
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #05050a;
+            color: #fff;
+            font-family: 'Orbitron', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container {
+            position: relative;
+            width: 900px;
+            height: 550px;
+            border: 4px solid #00f3ff;
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.4), inset 0 0 20px rgba(0, 243, 255, 0.2);
+            background: #000;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            background: #111;
+        }
+
+        .hud-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 15px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: none;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 14px;
+            text-shadow: 2px 2px #000;
+            z-index: 10;
+        }
+
+        .hud-group {
+            display: flex;
+            gap: 20px;
+        }
+
+        .hud-item span {
+            color: #00f3ff;
+        }
+
+        .life-icon {
+            color: #ff0055;
+            display: inline-block;
+            margin-right: 3px;
+        }
+
+        #screen-msg {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 20;
+            font-family: 'Press Start 2P', monospace;
+            pointer-events: none;
+        }
+
+        .title-glow {
+            font-size: 42px;
+            color: #ff0055;
+            text-shadow: 0 0 10px #ff0055, 0 0 20px #ff0055, 0 0 40px #ff0055;
+            margin-bottom: 10px;
+            animation: pulse 1.5s infinite alternate;
+        }
+
+        .subtitle {
+            font-size: 16px;
+            color: #00f3ff;
+            text-shadow: 0 0 8px #00f3ff;
+            margin-bottom: 30px;
+        }
+
+        .blink {
+            animation: blink 1s infinite;
+            font-size: 14px;
+            color: #fff;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.9; }
+            100% { transform: scale(1.05); opacity: 1; }
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        .controls-hint {
+            margin-top: 15px;
+            font-size: 12px;
+            color: #888;
+            text-align: center;
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .controls-hint b {
+            color: #00f3ff;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div class="hud-overlay" id="hud" style="display: none;">
+            <div class="hud-group">
+                <div class="hud-item">P1: <span id="hud-score">000000</span></div>
+            </div>
+            <div class="hud-group">
+                <div class="hud-item">VIDAS: <span id="hud-lives">♥♥♥</span></div>
+                <div class="hud-item">ARMA: <span id="hud-weapon">NORMAL</span></div>
+            </div>
+        </div>
+
+        <div id="screen-msg">
+            <h1 class="title-glow">CONTRA NEO</h1>
+            <div class="subtitle">JUNGLE ASSAULT</div>
+            <div class="blink">[ PRESIONA ESPACIO O ENTER PARA COMENZAR ]</div>
+        </div>
+
+        <canvas id="gameCanvas" width="900" height="550"></canvas>
+    </div>
+
+    <div class="controls-hint">
+        Movimiento: <b>FLECHAS / W,A,S,D</b> | Disparar: <b>J / ESPACIO</b> | Saltar: <b>K / W / ARRIBA</b> | Cambiar Dirección de Tiro: <b>Mantener Teclas de Dirección</b>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const hud = document.getElementById('hud');
+        const hudScore = document.getElementById('hud-score');
+        const hudLives = document.getElementById('hud-lives');
+        const hudWeapon = document.getElementById('hud-weapon');
+        const screenMsg = document.getElementById('screen-msg');
+
+        // Estado del juego
+        let gameState = 'MENU'; // MENU, PLAYING, GAMEOVER, VICTORY
+        let score = 0;
+        let lives = 3;
+        let gameTime = 0;
+        let cameraX = 0;
+        let levelLength = 4000;
+
+        // Controles
+        const keys = {};
+        window.addEventListener('keydown', e => {
+            if(['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
+                e.preventDefault();
+            }
+            keys[e.code] = true;
+            keys[e.key] = true;
+
+            if (gameState === 'MENU' && (e.code === 'Space' || e.code === 'Enter' || e.key === ' ')) {
+                startGame();
+            }
+            if ((gameState === 'GAMEOVER' || gameState === 'VICTORY') && (e.code === 'Space' || e.code === 'Enter' || e.key === ' ')) {
+                startGame();
+            }
+        });
+
+        window.addEventListener('keyup', e => {
+            keys[e.code] = false;
+            keys[e.key] = false;
+        });
+
+        // Clases del Juego
+        class Player {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                this.x = 100;
+                this.y = 350;
+                this.w = 28;
+                this.h = 44;
+                this.vx = 0;
+                this.vy = 0;
+                this.speed = 3.5;
+                this.jumpForce = -11;
+                this.gravity = 0.5;
+                this.grounded = false;
+                this.facing = 'RIGHT';
+                this.aim = 'RIGHT'; // UP, DOWN, RIGHT, LEFT, UP-RIGHT, etc.
+                this.isShooting = false;
+                this.shootCooldown = 0;
+                this.weapon = 'NORMAL'; // NORMAL, SPREAD, LASER
+                this.invulnerableTimer = 0;
+                this.ducking = false;
+            }
+
+            update() {
+                // Movimiento Horizontal
+                let moveLeft = keys['ArrowLeft'] || keys['KeyA'] || keys['a'];
+                let moveRight = keys['ArrowRight'] || keys['KeyD'] || keys['d'];
+                let moveUp = keys['ArrowUp'] || keys['KeyW'] || keys['w'];
+                let moveDown = keys['ArrowDown'] || keys['KeyS'] || keys['s'];
+
+                if (moveLeft) {
+                    this.vx = -this.speed;
+                    this.facing = 'LEFT';
+                } else if (moveRight) {
+                    this.vx = this.speed;
+                    this.facing = 'RIGHT';
+                } else {
+                    this.vx = 0;
+                }
+
+                // Agacharse
+                if (moveDown && this.grounded) {
+                    this.ducking = true;
+                    this.h = 26;
+                    this.vx = 0;
+                } else {
+                    this.ducking = false;
+                    this.h = 44;
+                }
+
+                // Salto
+                if ((moveUp || keys['KeyK'] || keys['Space']) && this.grounded && !this.ducking) {
+                    this.vy = this.jumpForce;
+                    this.grounded = false;
+                }
+
+                // Gravedad
+                this.vy += this.gravity;
+                this.y += this.vy;
+
+                // Colisión con suelo base
+                let floorY = 440;
+                if (this.y + this.h >= floorY) {
+                    this.y = floorY - this.h;
+                    this.vy = 0;
+                    this.grounded = true;
+                }
+
+                // Limites de pantalla respecto a la cámara
+                if (this.x < cameraX + 40) this.x = cameraX + 40;
+                if (this.x > cameraX + 700) this.x = cameraX + 700;
+
+                // Apuntar
+                if (moveUp && moveRight) this.aim = 'UP-RIGHT';
+                else if (moveUp && moveLeft) this.aim = 'UP-LEFT';
+                else if (moveDown && moveRight && !this.grounded) this.aim = 'DOWN-RIGHT';
+                else if (moveDown && moveLeft && !this.grounded) this.aim = 'DOWN-LEFT';
+                else if (moveUp) this.aim = 'UP';
+                else if (moveDown && !this.grounded) this.aim = 'DOWN';
+                else this.aim = this.facing;
+
+                // Disparo
+                if (keys['KeyJ'] || keys['KeyX'] || keys['ControlLeft']) {
+                    if (this.shootCooldown <= 0) {
+                        this.shoot();
+                        this.shootCooldown = this.weapon === 'SPREAD' ? 12 : 8;
+                    }
+                }
+
+                if (this.shootCooldown > 0) this.shootCooldown--;
+                if (this.invulnerableTimer > 0) this.invulnerableTimer--;
+            }
+
+            shoot() {
+                let dx = 0, dy = 0;
+                let speed = 8;
+
+                switch(this.aim) {
+                    case 'RIGHT': dx = speed; dy = 0; break;
+                    case 'LEFT': dx = -speed; dy = 0; break;
+                    case 'UP': dx = 0; dy = -speed; break;
+                    case 'DOWN': dx = 0; dy = speed; break;
+                    case 'UP-RIGHT': dx = speed * 0.7; dy = -speed * 0.7; break;
+                    case 'UP-LEFT': dx = -speed * 0.7; dy = -speed * 0.7; break;
+                    case 'DOWN-RIGHT': dx = speed * 0.7; dy = speed * 0.7; break;
+                    case 'DOWN-LEFT': dx = -speed * 0.7; dy = speed * 0.7; break;
+                }
+
+                let spawnX = this.facing === 'RIGHT' ? this.x + this.w : this.x;
+                let spawnY = this.y + 15;
+
+                if (this.weapon === 'NORMAL') {
+                    bullets.push(new Bullet(spawnX, spawnY, dx, dy, 'player'));
+                } else if (this.weapon === 'SPREAD') {
+                    bullets.push(new Bullet(spawnX, spawnY, dx, dy, 'player'));
+                    bullets.push(new Bullet(spawnX, spawnY, dx + (dy === 0 ? 0 : 1.5), dy + (dx === 0 ? 0 : 1.5), 'player'));
+                    bullets.push(new Bullet(spawnX, spawnY, dx - (dy === 0 ? 0 : 1.5), dy - (dx === 0 ? 0 : 1.5), 'player'));
+                } else if (this.weapon === 'LASER') {
+                    bullets.push(new Bullet(spawnX, spawnY, dx * 1.8, dy * 1.8, 'player', true));
+                }
+            }
+
+            draw() {
+                if (this.invulnerableTimer % 4 > 2) return; // Efecto parpadeo al recibir daño
+
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                // Cuerpo del héroe estilo Contra (Retro Sci-Fi Cyber Soldier)
+                ctx.fillStyle = '#00f3ff'; // Casco y detalles
+                // Piernas / Pantalón
+                ctx.fillStyle = '#1a237e';
+                ctx.fillRect(this.ducking ? 4 : 6, this.h - 18, 6, 18);
+                ctx.fillRect(this.ducking ? 18 : 16, this.h - 18, 6, 18);
+
+                // Torso / Chaleco militar futurista
+                ctx.fillStyle = '#ff0055';
+                ctx.fillRect(4, this.ducking ? 8 : 16, 20, 20);
+
+                // Cabeza / Casco
+                ctx.fillStyle = '#ffcc00';
+                let headY = this.ducking ? 0 : 4;
+                ctx.fillRect(7, headY, 14, 14);
+
+                // Visor / Gafas tácticas
+                ctx.fillStyle = '#00f3ff';
+                if (this.facing === 'RIGHT') {
+                    ctx.fillRect(14, headY + 4, 6, 4);
+                } else {
+                    ctx.fillRect(8, headY + 4, 6, 4);
+                }
+
+                // Arma detallada según dirección
+                ctx.fillStyle = '#ffffff';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                let gunEndX = 14, gunEndY = 20;
+                if (this.aim === 'RIGHT') { gunEndX = 34; gunEndY = 22; }
+                else if (this.aim === 'LEFT') { gunEndX = -6; gunEndY = 22; }
+                else if (this.aim === 'UP') { gunEndX = 14; gunEndY = -2; }
+                else if (this.aim === 'UP-RIGHT') { gunEndX = 30; gunEndY = 4; }
+                else if (this.aim === 'UP-LEFT') { gunEndX = -2; gunEndY = 4; }
+                else if (this.aim === 'DOWN-RIGHT') { gunEndX = 30; gunEndY = 35; }
+                else if (this.aim === 'DOWN-LEFT') { gunEndX = -2; gunEndY = 35; }
+
+                ctx.moveTo(14, 20);
+                ctx.lineTo(gunEndX, gunEndY);
+                ctx.stroke();
+
+                ctx.restore();
+            }
+        }
+
+        class Bullet {
+            constructor(x, y, vx, vy, owner, isLaser = false) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.owner = owner; // 'player' o 'enemy'
+                this.isLaser = isLaser;
+                this.active = true;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Fuera de pantalla o límites del nivel
+                if (this.x < cameraX - 50 || this.x > cameraX + 950 || this.y < 0 || this.y > 550) {
+                    this.active = false;
+                }
+            }
+
+            draw() {
+                ctx.save();
+                if (this.owner === 'player') {
+                    ctx.fillStyle = this.isLaser ? '#00ffff' : '#ffff00';
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = this.isLaser ? '#00ffff' : '#ffcc00';
+                    ctx.fillRect(this.x - 3, this.y - 3, this.isLaser ? 14 : 6, this.isLaser ? 4 : 6);
+                } else {
+                    ctx.fillStyle = '#ff0055';
+                    ctx.shadowBlur = 8;
+                    ctx.shadowColor = '#ff0055';
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+        }
+
+        class Enemy {
+            constructor(x, y, type) {
+                this.x = x;
+                this.y = y;
+                this.type = type; // 'soldier', 'turret', 'boss'
+                this.w = type === 'boss' ? 80 : 32;
+                this.h = type === 'boss' ? 90 : 44;
+                this.hp = type === 'boss' ? 60 : (type === 'turret' ? 8 : 2);
+                this.shootTimer = Math.random() * 60;
+                this.facing = 'LEFT';
+                this.active = true;
+                this.maxHp = this.hp;
+            }
+
+            update() {
+                // Activar enemigos cercanos a la cámara
+                if (this.x < cameraX + 950 && this.x > cameraX - 100) {
+                    this.shootTimer++;
+                    if (this.type === 'soldier') {
+                        // Soldado camina hacia el jugador lentamente
+                        if (player.x < this.x) {
+                            this.x -= 0.8;
+                            this.facing = 'LEFT';
+                        } else {
+                            this.x += 0.8;
+                            this.facing = 'RIGHT';
+                        }
+
+                        if (this.shootTimer > 90) {
+                            this.shootTimer = 0;
+                            let angle = Math.atan2(player.y - this.y, player.x - this.x);
+                            bullets.push(new Bullet(this.x, this.y + 20, Math.cos(angle) * 4, Math.sin(angle) * 4, 'enemy'));
+                        }
+                    } else if (this.type === 'turret') {
+                        if (this.shootTimer > 70) {
+                            this.shootTimer = 0;
+                            let angle = Math.atan2(player.y - this.y, player.x - this.x);
+                            bullets.push(new Bullet(this.x, this.y + 10, Math.cos(angle) * 5, Math.sin(angle) * 5, 'enemy'));
+                        }
+                    } else if (this.type === 'boss') {
+                        // Boss se mueve verticalmente y dispara ráfagas
+                        this.y = 250 + Math.sin(gameTime * 0.03) * 120;
+                        if (this.shootTimer > 40) {
+                            this.shootTimer = 0;
+                            let angle = Math.atan2(player.y - this.y, player.x - this.x);
+                            bullets.push(new Bullet(this.x, this.y + 30, Math.cos(angle) * 5, Math.sin(angle) * 5, 'enemy'));
+                            bullets.push(new Bullet(this.x, this.y + 30, Math.cos(angle + 0.3) * 5, Math.sin(angle + 0.3) * 5, 'enemy'));
+                            bullets.push(new Bullet(this.x, this.y + 30, Math.cos(angle - 0.3) * 5, Math.sin(angle - 0.3) * 5, 'enemy'));
+                        }
+                    }
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                if (this.type === 'soldier') {
+                    // Soldado enemigo rojo estilo alien/mercenario
+                    ctx.fillStyle = '#b71c1c';
+                    ctx.fillRect(4, 16, 24, 28);
+                    ctx.fillStyle = '#d32f2f';
+                    ctx.fillRect(8, 2, 16, 14);
+                    // Ojos amarillos
+                    ctx.fillStyle = '#ffeb3b';
+                    if (this.facing === 'LEFT') {
+                        ctx.fillRect(8, 6, 4, 3);
+                    } else {
+                        ctx.fillRect(20, 6, 4, 3);
+                    }
+                } else if (this.type === 'turret') {
+                    // Torreta alienígena futurista
+                    ctx.fillStyle = '#4527a0';
+                    ctx.fillRect(0, 20, 32, 24);
+                    ctx.fillStyle = '#7c4dff';
+                    ctx.beginPath();
+                    ctx.arc(16, 20, 16, Math.PI, 0, false);
+                    ctx.fill();
+                    ctx.fillStyle = '#ff1744';
+                    ctx.fillRect(12, 12, 8, 8);
+                } else if (this.type === 'boss') {
+                    // Super Boss Alien Mech
+                    ctx.fillStyle = '#212121';
+                    ctx.fillRect(0, 0, this.w, this.h);
+                    ctx.fillStyle = '#00e676'; // Núcleo energía alien
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = '#00e676';
+                    ctx.beginPath();
+                    ctx.arc(this.w / 2, this.h / 2, 22, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Barra de vida del Boss
+                    ctx.fillStyle = '#333';
+                    ctx.fillRect(-20, -20, 120, 8);
+                    ctx.fillStyle = '#ff0055';
+                    ctx.fillRect(-20, -20, (this.hp / this.maxHp) * 120, 8);
+                }
+
+                ctx.restore();
+            }
+        }
+
+        class PowerUp {
+            constructor(x, y, type) {
+                this.x = x;
+                this.y = y;
+                this.w = 30;
+                this.h = 20;
+                this.type = type; // 'SPREAD', 'LASER'
+                this.active = true;
+            }
+
+            update() {
+                // Flotar levemente
+                this.y += Math.sin(gameTime * 0.1) * 0.5;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.fillStyle = '#ffea00';
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = '#ffea00';
+                ctx.fillRect(0, 0, this.w, this.h);
+                ctx.fillStyle = '#000';
+                ctx.font = 'bold 12px Orbitron';
+                ctx.fillText(this.type === 'SPREAD' ? 'S' : 'L', 10, 15);
+                ctx.restore();
+            }
+        }
+
+        let player = new Player();
+        let bullets = [];
+        let enemies = [];
+        let powerups = [];
+        let particles = [];
+
+        function spawnLevelElements() {
+            enemies = [];
+            powerups = [];
+
+            // Generar enemigos y obstáculos a lo largo del mapa
+            for (let i = 600; i < levelLength - 500; i += 350) {
+                let type = Math.random() > 0.4 ? 'soldier' : 'turret';
+                enemies.push(new Enemy(i, type === 'turret' ? 400 : 400, type));
+            }
+
+            // Powerups en puntos clave
+            powerups.push(new PowerUp(1200, 380, 'SPREAD'));
+            powerups.push(new PowerUp(2500, 380, 'LASER'));
+
+            // Boss final
+            enemies.push(new Enemy(levelLength - 400, 250, 'boss'));
+        }
+
+        function startGame() {
+            gameState = 'PLAYING';
+            score = 0;
+            lives = 3;
+            gameTime = 0;
+            cameraX = 0;
+            player.reset();
+            bullets = [];
+            particles = [];
+            spawnLevelElements();
+
+            hud.style.display = 'flex';
+            screenMsg.style.display = 'none';
+        }
+
+        function createExplosion(x, y, color = '#ff5722', count = 15) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8,
+                    life: 30 + Math.random() * 20,
+                    color: color
+                });
+            }
+        }
+
+        function update() {
+            if (gameState !== 'PLAYING') return;
+
+            gameTime++;
+
+            // Cámara sigue al jugador suavemente
+            let targetCameraX = player.x - 250;
+            if (targetCameraX < 0) targetCameraX = 0;
+            if (targetCameraX > levelLength - 900) targetCameraX = levelLength - 900;
+            cameraX += (targetCameraX - cameraX) * 0.1;
+
+            player.update();
+
+            // Actualizar Balas
+            bullets.forEach(b => b.update());
+            bullets = bullets.filter(b => b.active);
+
+            // Actualizar Enemigos
+            enemies.forEach(e => e.update());
+
+            // Actualizar PowerUps
+            powerups.forEach(p => p.update());
+
+            // Actualizar Partículas
+            particles.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life--;
+            });
+            particles = particles.filter(p => p.life > 0);
+
+            // Colisiones Balas del Jugador con Enemigos
+            bullets.forEach(b => {
+                if (b.owner === 'player') {
+                    enemies.forEach(e => {
+                        if (e.active && b.x > e.x && b.x < e.x + e.w && b.y > e.y && b.y < e.y + e.h) {
+                            e.hp -= (b.isLaser ? 4 : 1);
+                            b.active = false;
+                            createExplosion(b.x, b.y, '#ffeb3b', 5);
+
+                            if (e.hp <= 0 && e.active) {
+                                e.active = false;
+                                score += e.type === 'boss' ? 5000 : 200;
+                                createExplosion(e.x + e.w/2, e.y + e.h/2, '#ff0055', 25);
+
+                                if (e.type === 'boss') {
+                                    gameState = 'VICTORY';
+                                }
+                            }
+                        }
+                    });
+                } else if (b.owner === 'enemy') {
+                    // Colisión Bala Enemiga con Jugador
+                    if (player.invulnerableTimer <= 0 &&
+                        b.x > player.x && b.x < player.x + player.w &&
+                        b.y > player.y && b.y < player.y + player.h) {
+                        b.active = false;
+                        playerTakeDamage();
+                    }
+                }
+            });
+
+            // Colisiones Jugador con PowerUps
+            powerups.forEach(p => {
+                if (p.active &&
+                    player.x < p.x + p.w && player.x + player.w > p.x &&
+                    player.y < p.y + p.h && player.y + player.h > p.y) {
+                    p.active = false;
+                    player.weapon = p.type;
+                    score += 500;
+                    createExplosion(p.x, p.y, '#00f3ff', 15);
+                }
+            });
+
+            // Colisión Jugador con Enemigos (Cuerpo a cuerpo)
+            enemies.forEach(e => {
+                if (e.active && player.invulnerableTimer <= 0 &&
+                    player.x < e.x + e.w && player.x + player.w > e.x &&
+                    player.y < e.y + e.h && player.y + player.h > e.y) {
+                    playerTakeDamage();
+                }
+            });
+
+            // Actualizar HUD
+            hudScore.textContent = String(score).padStart(6, '0');
+            hudLives.textContent = '♥'.repeat(Math.max(0, lives));
+            hudWeapon.textContent = player.weapon;
+
+            // Victoria por llegar al final si no hay boss vivo
+            if (player.x >= levelLength - 100) {
+                gameState = 'VICTORY';
+            }
+        }
+
+        function playerTakeDamage() {
+            lives--;
+            player.invulnerableTimer = 120; // 2 segundos de inmunidad
+            createExplosion(player.x + player.w/2, player.y + player.h/2, '#ff0055', 20);
+
+            if (lives <= 0) {
+                gameState = 'GAMEOVER';
+            }
+        }
+
+        function drawBackground() {
+            // Cielo cibernético / nocturno con gradiente
+            let bgGrad = ctx.createLinearGradient(0, 0, 0, 550);
+            bgGrad.addColorStop(0, '#090a1f');
+            bgGrad.addColorStop(0.7, '#1b143f');
+            bgGrad.addColorStop(1, '#0c1021');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, 900, 550);
+
+            // Parallax layer 1: Montañas lejanas / Torres futuristas
+            ctx.save();
+            ctx.translate(-cameraX * 0.3, 0);
+            ctx.fillStyle = '#16193b';
+            for (let i = 0; i < levelLength; i += 180) {
+                ctx.beginPath();
+                ctx.moveTo(i, 440);
+                ctx.lineTo(i + 90, 220 + (i % 100));
+                ctx.lineTo(i + 180, 440);
+                ctx.fill();
+            }
+            ctx.restore();
+
+            // Parallax layer 2: Vegetación de la jungla oscura y árboles cibernéticos
+            ctx.save();
+            ctx.translate(-cameraX * 0.6, 0);
+            ctx.fillStyle = '#0f3833';
+            for (let i = 0; i < levelLength; i += 120) {
+                ctx.fillRect(i + 20, 280, 30, 160);
+                ctx.fillStyle = '#114b43';
+                ctx.beginPath();
+                ctx.arc(i + 35, 280, 45, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#0f3833';
+            }
+            ctx.restore();
+
+            // Suelo del nivel
+            ctx.save();
+            ctx.translate(-cameraX, 0);
+
+            // Base de terreno
+            ctx.fillStyle = '#052e16';
+            ctx.fillRect(0, 440, levelLength, 110);
+
+            // Línea de neón superior del suelo
+            ctx.strokeStyle = '#00ff66';
+            ctx.lineWidth = 4;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#00ff66';
+            ctx.beginPath();
+            ctx.moveTo(0, 440);
+            ctx.lineTo(levelLength, 440);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawBackground();
+
+            ctx.save();
+            ctx.translate(-cameraX, 0);
+
+            // Dibujar PowerUps
+            powerups.forEach(p => { if (p.active) p.draw(); });
+
+            // Dibujar Enemigos
+            enemies.forEach(e => { if (e.active) e.draw(); });
+
+            // Dibujar Jugador
+            player.draw();
+
+            // Dibujar Balas
+            bullets.forEach(b => b.draw());
+
+            // Dibujar Partículas
+            particles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x, p.y, 4, 4);
+            });
+
+            ctx.restore();
+
+            // Mensajes de Pantalla Final / Menú
+            if (gameState === 'MENU') {
+                screenMsg.style.display = 'block';
+                screenMsg.innerHTML = `
+                    <h1 class="title-glow">CONTRA NEO</h1>
+                    <div class="subtitle">JUNGLE ASSAULT</div>
+                    <div class="blink">[ PRESIONA ESPACIO PARA JUGAR ]</div>
+                `;
+            } else if (gameState === 'GAMEOVER') {
+                screenMsg.style.display = 'block';
+                screenMsg.innerHTML = `
+                    <h1 class="title-glow" style="color: #ff0000; text-shadow: 0 0 15px #ff0000;">GAME OVER</h1>
+                    <div class="subtitle">PUNTUACIÓN: ${score}</div>
+                    <div class="blink">[ PRESIONA ESPACIO PARA REINTENTAR ]</div>
+                `;
+            } else if (gameState === 'VICTORY') {
+                screenMsg.style.display = 'block';
+                screenMsg.innerHTML = `
+                    <h1 class="title-glow" style="color: #00ff66; text-shadow: 0 0 15px #00ff66;">¡MISIÓN CUMPLIDA!</h1>
+                    <div class="subtitle">VICTORIA - PUNTUACIÓN: ${score}</div>
+                    <div class="blink">[ PRESIONA ESPACIO PARA JUGAR DE NUEVO ]</div>
+                `;
+            } else {
+                screenMsg.style.display = 'none';
+            }
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        // Iniciar loop
+        loop();
+    </script>
+</body>
+</html>

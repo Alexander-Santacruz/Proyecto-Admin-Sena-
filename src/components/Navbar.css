@@ -1,0 +1,154 @@
+.custom-navbar {
+  background-color: var(--sena-green);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.nav-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 1.25rem;
+}
+
+.nav-brand img {
+  height: 40px;
+  width: auto;
+}
+
+.nav-menu {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.nav-link {
+  color: #ffffff;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.95rem;
+  transition: opacity 0.2s ease;
+}
+
+.nav-link:hover {
+  opacity: 0.85;
+}
+
+/* Dropdown */
+.dropdown-wrapper {
+  position: relative;
+}
+
+.dropdown-trigger {
+  background: none;
+  border: none;
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 0.95rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0;
+}
+
+.dropdown-menu-custom {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: #ffffff;
+  min-width: 200px;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+  padding: 0.5rem 0;
+  margin-top: 0.5rem;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  z-index: 1010;
+}
+
+.dropdown-item-custom {
+  padding: 0.6rem 1.2rem;
+  color: var(--text-dark);
+  text-decoration: none;
+  font-size: 0.9rem;
+  display: block;
+  transition: background 0.2s ease;
+}
+
+.dropdown-item-custom:hover {
+  background-color: #f1f5f9;
+}
+
+/* Buscador Nav */
+.nav-search {
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.nav-search input {
+  border: none;
+  padding: 0.5rem 0.8rem;
+  font-size: 0.875rem;
+  outline: none;
+}
+
+.nav-search button {
+  background: #1e293b;
+  border: none;
+  color: #ffffff;
+  padding: 0.5rem 0.8rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+/* Toggle Móvil */
+.nav-toggle {
+  display: none;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+/* Avatar de usuario */
+.user-avatar-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+}
+
+.user-avatar-img {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  object-fit: cover;
+}
